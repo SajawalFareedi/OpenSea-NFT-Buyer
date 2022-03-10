@@ -1,0 +1,34 @@
+{
+  "name": "opensea-listings-bot",
+  "version": "1.0.0",
+  "description": "A bot for checking new listings on OpenSea and saving them in XLSX",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "concurrently --kill-others \"node ./main.js\" \"node ./helpers/nft-buyer.js\"",
+    "start:floorprice": "\"node ./helpers/floor-price_updater.js\""
+  },
+  "keywords": [
+    "opensea",
+    "nft-buying",
+    "nodejs",
+    "puppeteer",
+    "cheerio",
+    "listings",
+    "crawler"
+  ],
+  "author": "Sajawal Fareedi",
+  "license": "ISC",
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^2.0.3",
+    "moment": "^2.29.1",
+    "mongoose": "^6.2.4",
+    "opensea-js": "^3.0.0",
+    "puppeteer-extra": "^3.2.3",
+    "puppeteer-extra-plugin-stealth": "^2.9.0",
+    "xlsx": "^0.18.2"
+  },
+  "devDependencies": {
+    "concurrently": "^7.0.0"
+  }
+}
