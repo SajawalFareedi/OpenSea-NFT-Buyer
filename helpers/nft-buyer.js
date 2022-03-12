@@ -1,10 +1,12 @@
-const fs = require("fs"); // For Handling File System
+const fs = require("fs");
+const moment = require("moment");
 const { NewListings, SheetData } = require("../database/models/models");
 const WalletProvider = require("@truffle/hdwallet-provider");
 const OpenSeaAPI = require("opensea-js");
 const { OrderSide } = require("opensea-js/lib/types");
 
 let loaded_data = {};
+let Time = []
 
 const Secrets = JSON.parse(fs.readFileSync("./json/secret.json", "utf-8"));
 
@@ -99,7 +101,58 @@ const compareFloorPrice = async () => {
   }
 };
 
-// Function for loading the data from the given excel file
+const extractNewListings = (data) => {
+  return new Promise((resolve, reject) => {
+    try {
+      let SLUGS = [];
+      let IDs = [];
+      let PRICES = [];
+      let LINKS = [];
+      let RANKS = [];
+      let TRAITS = [];
+      let RULES = [];
+      let VALUES = [];
+      let MINPROFIT = [];
+
+      for (let i = 0; i < data.SLUGS.length; i++) {
+        const time = Time[i];
+        let minutes = moment().diff(moment(time), "minutes");
+        if (minutes <= 5) {
+          SLUGS.push(data.SLUGS[i]);
+          IDs.push(data.IDs[i]);
+          PRICES.push(data.PRICES[i]);
+          LINKS.push(data.LINKS[i]);
+          RANKS.push(data.RANKS[i]);
+          VALUES.push(data.VALUES[i]);
+          TRAITS.push(data.TRAITS[i]);
+          MINPROFIT.push(data.MINPROFIT[i]);
+          RULES.push(data.RULES[i]);
+        };
+      };
+
+      loaded_data = {
+        SLUGS: SLUGS,
+        IDs: IDs,
+        PRICES: PRICES,
+        LINKS: LINKS,
+        RANKS: RANKS,
+        VALUES: VALUES,
+        TRAITS: TRAITS,
+        MINPROFIT: MINPROFIT,
+        RULES: RULES
+      };
+
+      return resolve("Success");
+    } catch (e) {
+      return reject(e)
+    }
+  })
+
+
+
+}
+
+
 const loadData = () => {
   return new Promise((resolve, reject) => {
     try {
@@ -136,6 +189,7 @@ const loadData = () => {
           TRAITS.push(row.TRAIT);
           MINPROFIT.push(row.MINPROFIT);
           RULES.push(row.RULE);
+          Time.push(String(row.TIME))
         }
 
         SheetData.find((error, result) => {
@@ -180,13 +234,17 @@ const loadData = () => {
 };
 
 setInterval(async () => {
+  // (async () => {
   try {
     await loadData()
       .then(async (data) => {
         if (data !== false) {
-          loaded_data = data;
-          await compareFloorPrice();
-        }
+          await extractNewListings(data).then(async () => {
+            await compareFloorPrice();
+          }).catch((e) => {
+            throw e;
+          });
+        };
       })
       .catch((e) => {
         throw e;
@@ -194,5 +252,5 @@ setInterval(async () => {
   } catch (error) {
     throw error;
   }
+  // })()
 }, 1000 * 10); // 10 sec delay
-
