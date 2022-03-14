@@ -5,8 +5,7 @@
   "private": true,
   "main": "main.js",
   "scripts": {
-    "start": "concurrently --kill-others \"node ./main.js\" \"node ./helpers/nft-buyer.js\"",
-    "start:floorprice": "\"node ./helpers/floor-price_updater.js\""
+    "start": "concurrently --kill-others \"node ./main.js\" \"node ./helpers/nft-buyer.js\" \"node ./helpers/floor-price_updater.js\""
   },
   "keywords": [
     "opensea",
@@ -21,6 +20,7 @@
   "license": "ISC",
   "dependencies": {
     "@truffle/hdwallet-provider": "^2.0.3",
+    "axios": "^0.26.1",
     "moment": "^2.29.1",
     "mongoose": "^6.2.4",
     "opensea-js": "^3.0.0",

@@ -22,11 +22,9 @@ process.on("exit", (code) => {
 // Global Variables, So i can use them any where in this file easily
 let loaded_data = {};
 let num = 0;
-// let finalData = [];
 let input_file = "input.xlsx";
-// let output_excel_file = "./xlsx-out/OpenSea_Listing_Data_Node.xlsx";
 let output_json_file = "./json/items_node.json";
-let url = "https://opensea.io/activity?search[eventTypes][0]=AUCTION_CREATED";
+let url = "";
 let xlsxPath = `${__dirname}\\xlsx-in\\${input_file}`;
 
 // Function for writing the final data to XLSX file
@@ -53,6 +51,8 @@ const writeToDatabase = (
         RULE: rule,
         VALUE: value,
         MINPROFIT: minProfit,
+        isBought: false,
+        DATE: new Date(Date.now()).toISOString()
       };
 
       const listing = new NewListings(data);
@@ -92,7 +92,7 @@ const isItemExists = (data, id) => {
   for (let i = 0; i < data.length; i++) {
     const item = data[i];
     if (id == item.id) {
-      console.log("Item Exists:", id);
+      console.log(`Item Exists: ${item.slug} -- ${id}`);
       itemExists = true;
       index = i;
     }
@@ -119,6 +119,7 @@ const checkIfAlreadyExists = (
         id: "",
         time: "",
       };
+
       if (fs.existsSync(output_json_file)) {
         fs.readFile(output_json_file, "utf-8", async (err, json) => {
           if (err) throw err;
@@ -127,7 +128,7 @@ const checkIfAlreadyExists = (
           let idx = result[1];
           if (result[0] == true) {
             let time = data_obj[idx].time;
-            let hours = moment().diff(moment(time), "hours");
+            let hours = moment().diff(moment(time, true), "hours");
             if (hours >= 24) {
               data_obj.splice(idx, 1);
               writeToJSON([data_obj]);
@@ -198,7 +199,8 @@ const extractNewListings = (data) => {
           const listing = listings[i].node;
           if (
             typeof listing.assetQuantity !== "undefined" &&
-            listing.assetQuantity !== null
+            listing.assetQuantity !== null &&
+            listing.price.asset.symbol == "ETH"
           ) {
             let price = String(
               parseFloat(listing.price.quantityInEth) / 10 ** 18
@@ -208,13 +210,13 @@ const extractNewListings = (data) => {
             let link = `https://opensea.io/assets/${listing.assetQuantity.asset.assetContract.address}/${id}`;
 
             if (loaded_data.IDs_2.length > 0) {
-              if (loaded_data.SLUGS_2.indexOf(slug) !== -1) {
-                idx = loaded_data.SLUGS_2.indexOf(slug);
-                rank = loaded_data.RANKS_2[idx];
-                value = loaded_data.VALUES_2[idx];
-                trait = loaded_data.TRAITS_2[idx];
-                rule = loaded_data.RULES_2[idx];
-                minProfit = loaded_data.MINPROFIT_2[idx];
+              if (loaded_data.SLUGS.indexOf(slug) !== -1 && loaded_data.IDs.indexOf(id) !== -1) {
+                idx = loaded_data.IDs.indexOf(id);
+                rank = loaded_data.RANKS[idx];
+                value = loaded_data.VALUES[idx];
+                trait = loaded_data.TRAITS[idx];
+                rule = loaded_data.RULES[idx];
+                minProfit = loaded_data.MINPROFIT[idx];
                 await checkIfAlreadyExists(
                   slug,
                   id,
@@ -228,18 +230,16 @@ const extractNewListings = (data) => {
                 ).catch((e) => {
                   throw e;
                 });
-                return resolve("");
               } else {
                 if (
-                  loaded_data.SLUGS.indexOf(slug) !== -1 &&
-                  loaded_data.IDs.indexOf(id) !== -1
+                  loaded_data.SLUGS_2.indexOf(slug) !== -1
                 ) {
-                  idx = loaded_data.IDs.indexOf(id);
-                  rank = loaded_data.RANKS[idx];
-                  value = loaded_data.VALUES[idx];
-                  trait = loaded_data.TRAITS[idx];
-                  rule = loaded_data.RULES[idx];
-                  minProfit = loaded_data.MINPROFIT[idx];
+                  idx = loaded_data.SLUGS_2.indexOf(slug);
+                  rank = loaded_data.RANKS_2[idx];
+                  value = loaded_data.VALUES_2[idx];
+                  trait = loaded_data.TRAITS_2[idx];
+                  rule = loaded_data.RULES_2[idx];
+                  minProfit = loaded_data.MINPROFIT_2[idx];
                   await checkIfAlreadyExists(
                     slug,
                     id,
@@ -253,7 +253,6 @@ const extractNewListings = (data) => {
                   ).catch((e) => {
                     throw e;
                   });
-                  return resolve("");
                 }
               }
             } else {
@@ -280,12 +279,12 @@ const extractNewListings = (data) => {
                 ).catch((e) => {
                   throw e;
                 });
-                return resolve("");
               }
             }
           }
         }
       }
+      return resolve("");
     } catch (e) {
       return reject(e);
     }
@@ -403,6 +402,39 @@ const loadExcelData = (path) => {
   });
 };
 
+function removeDuplicates(a) {
+  return Array.from(new Set(a));
+}
+
+const generateUrl = () => {
+  return new Promise((resolve, reject) => {
+    try {
+      let slugs = loaded_data.SLUGS_2.length > 0 ? [...loaded_data.SLUGS, ...loaded_data.SLUGS_2] : [loaded_data.SLUGS];
+      slugs = removeDuplicates(slugs);
+      let start = "https://opensea.io/activity?";
+      let middle = ""
+      let end = "&search[eventTypes][0]=AUCTION_CREATED";
+
+      for (let i = 0; i < slugs.length; i++) {
+        const slug = slugs[i];
+        if (i == 0) {
+          middle = `search[collections][0]=${slug}`;
+        } else {
+          middle = `${middle}&search[collections][${i}]=${slug}`;
+        }
+      }
+
+      url = `${start}${middle}${end}`;
+
+      return resolve("Success");
+    } catch (e) {
+      return reject(e);
+    }
+  })
+
+}
+
+
 /**
  * @description Opens a browser, heads to the provided url of OpenSea, then start checking for new listings and export them in XLSX simultaneously
  */
@@ -484,22 +516,13 @@ const CrawlOpenSeaListings = async () => {
     // Intercepting the Response of GraphQL API, OpenSea uses it to get data for new listing
     // and we can easily extract that data and do what ever we want to do with it.
     page.on("response", async (res) => {
-      if (
-        res.request().url().toLowerCase() ==
-          "https://api.opensea.io/graphql/" &&
-        res.request().method() == "POST"
-      ) {
+      if (res.request().url().toLowerCase() == "https://api.opensea.io/graphql/" && res.request().method() == "POST") {
         if (num > 1) {
-          await res
-            .json()
-            .then(async (graphql_res) => {
-              await extractNewListings(graphql_res).catch((e) => {
-                throw e;
-              });
-            })
-            .catch((e) => {
+          await res.json().then(async (graphql_res) => {
+            await extractNewListings(graphql_res).catch((e) => {
               throw e;
             });
+          }).catch((e) => { throw e });
         } else {
           num++;
         }
@@ -514,6 +537,8 @@ const CrawlOpenSeaListings = async () => {
     await loadExcelData(xlsxPath)
       .then(async (data) => {
         loaded_data = data;
+        await generateUrl().catch((e) => { throw e });
+        console.log(url);
         await page.goto(url, { timeout: 0, referer: "https://opensea.io/" });
         console.log("Website opened, checking for new listings...\n");
       })

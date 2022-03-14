@@ -14,7 +14,8 @@ const NewListingsSchema = new Schema({
   RULE: String,
   VALUE: String,
   MINPROFIT: String,
-  DATE: { type: Date, default: Date.now },
+  isBought: { type: Boolean, default: false },
+  DATE: { type: Date },
 });
 
 const SheetDataSchema = new Schema({

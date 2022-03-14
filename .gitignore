@@ -3,3 +3,5 @@ tmp/
 
 secret.json
 sheet.json
+test.js
+items_node.json
