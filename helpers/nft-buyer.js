@@ -2,6 +2,7 @@ const fs = require("fs");
 const moment = require("moment");
 const { NewListings, SheetData } = require("../database/models/models");
 const WalletProvider = require("@truffle/hdwallet-provider");
+const web3 = require("web3");
 const OpenSeaAPI = require("opensea-js");
 const { OrderSide } = require("opensea-js/lib/types");
 
@@ -15,17 +16,47 @@ const Network =
     ? OpenSeaAPI.Network.Rinkeby
     : OpenSeaAPI.Network.Main;
 
-const provider = new WalletProvider({
+const hdWalletProvider = new WalletProvider({
   mnemonic: Secrets.mnemonic,
   providerOrUrl: Secrets.provider,
-  from: Secrets.wallet,
+  // from: Secrets.wallet,
   addressIndex: 0,
 });
 
-const seaport = new OpenSeaAPI.OpenSeaPort(provider, {
+var Web3 = new web3(hdWalletProvider, {
+  reconnect: {
+    auto: true,
+    delay: 5000,
+    maxAttempts: 5,
+    onTimeout: false,
+  }
+});
+
+let Provider = Web3.currentProvider;
+
+const newProvider = () => new web3(hdWalletProvider, {
+  reconnect: {
+    auto: true,
+    delay: 5000,
+    maxAttempts: 5,
+    onTimeout: false,
+  },
+});
+
+const updateProvider = () => {
+  Web3.setProvider(newProvider());
+  Provider = Web3.currentProvider;
+
+};
+
+setInterval(updateProvider, (1000 * 3600) * 5);
+
+const seaport = new OpenSeaAPI.OpenSeaPort(Provider, {
   networkName: Network,
   // apiKey: Secrets.api,
 });
+
+console.log(seaport.web3.currentProvider);
 
 process.on("exit", (code) => {
   console.info(`Exiting with code: ${code}`);
@@ -255,24 +286,24 @@ const loadData = () => {
   });
 };
 
-setInterval(async () => {
-  (async () => {
-    try {
-      await loadData()
-        .then(async (data) => {
-          if (data !== false) {
-            await extractNewListings(data).then(async () => {
-              await compareFloorPrice();
-            }).catch((e) => {
-              throw e;
-            });
-          };
-        })
-        .catch((e) => {
-          throw e;
-        });
-    } catch (error) {
-      throw error;
-    }
-  })();
-}, 2000); // 1 sec delay
+// setInterval(async () => {
+//   (async () => {
+//     try {
+//       await loadData()
+//         .then(async (data) => {
+//           if (data !== false) {
+//             await extractNewListings(data).then(async () => {
+//               await compareFloorPrice();
+//             }).catch((e) => {
+//               throw e;
+//             });
+//           };
+//         })
+//         .catch((e) => {
+//           throw e;
+//         });
+//     } catch (error) {
+//       throw error;
+//     }
+//   })();
+// }, 2000); // 1 sec delay
