@@ -8,7 +8,8 @@
     "start": "concurrently --kill-others \"node ./main.js\" \"node ./helpers/nft-buyer.js\" \"node ./helpers/floor-price_updater.js\"",
     "floorUpdater": "node ./helpers/floor-price_updater.js --max-old-space-size=4096",
     "buyer": "node ./helpers/nft-buyer.js --max-old-space-size=4096",
-    "main": "node ./main.js --max-old-space-size=4096"
+    "main": "node ./main.js --max-old-space-size=4096",
+    "excelUpdater": "node ./helpers/excelUpdater.js --max-old-space-size=4096"
   },
   "keywords": [
     "opensea",
@@ -24,6 +25,8 @@
   "dependencies": {
     "@truffle/hdwallet-provider": "^2.0.3",
     "axios": "^0.26.1",
+    "cheerio": "^1.0.0-rc.10",
+    "exceljs": "^4.3.0",
     "moment": "^2.29.1",
     "mongoose": "^6.2.4",
     "opensea-js": "^3.0.0",
@@ -33,6 +36,8 @@
     "xlsx": "^0.18.2"
   },
   "devDependencies": {
-    "concurrently": "^7.0.0"
+    "concurrently": "^7.0.0",
+    "eslint": "^8.12.0",
+    "eslint-config-google": "^0.14.0"
   }
 }

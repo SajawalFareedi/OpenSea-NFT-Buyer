@@ -1,8 +1,11 @@
 node_modules/
+db_backup/
 tmp/
+asset_data/
+json/
+xlsx-in/
 
-secret.json
-sheet.json
-test.js
-items_node.json
+*.test.js
 *.txt
+.env
+*.xlsx
