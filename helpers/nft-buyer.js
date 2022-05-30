@@ -20,40 +20,7 @@ Secrets.network == 'Rinkeby' ?
   console.info('\n[INFO]: Running on Testnet\n') :
   console.info('\n[INFO]: Running on Mainnet\n');
 
-// let Provider;
 let seaport;
-// let Web3;
-// let hdWalletProvider;
-
-// const newProvider = () =>
-//   new web3(hdWalletProvider, {
-//     reconnect: {
-//       auto: true,
-//       delay: 5000,
-//       maxAttempts: 5,
-//       onTimeout: false,
-//     },
-//   });
-
-// const updateProvider = () => {
-//   console.log("Updating Network Provider...");
-//   Web3.setProvider(
-//     new web3(hdWalletProvider, {
-//       reconnect: {
-//         auto: true,
-//         delay: 5000,
-//         maxAttempts: 5,
-//         onTimeout: false,
-//       },
-//     })
-//   );
-//   Provider = Web3.currentProvider;
-
-//   seaport = new OpenSeaAPI.OpenSeaPort(Provider, {
-//     networkName: Network,
-//     apiKey: Secrets.api,
-//   });
-// };
 
 const updateProvider = () => {
   console.log('Updating Network Provider...');
@@ -66,11 +33,15 @@ const updateProvider = () => {
     });
 
     const Web3 = new web3(hdWalletProvider, {
+      clientConfig: {
+        keepalive: true,
+        keepaliveInterval: 60000,
+      },
       reconnect: {
         auto: true,
-        delay: 5000,
-        maxAttempts: 5,
-        onTimeout: false,
+        delay: 1000,
+        maxAttempts: 10,
+        onTimeout: true,
       },
     });
 
@@ -119,20 +90,6 @@ const IsBought = (id, slug) => {
     }
   });
 };
-
-// const updateOutcome = (id, value) => {
-//   return new Promise((resolve, reject) => {
-//     const outcome = Number(value);
-//     try {
-//       NewListings.updateOne({ID: id}, {Outcome: outcome}, null, (e) => {
-//         if (e) throw e;
-//         return resolve('Success');
-//       });
-//     } catch (e) {
-//       return reject(e);
-//     }
-//   });
-// };
 
 const buyNFT = async (nft_data) => {
   try {
@@ -183,9 +140,6 @@ const compareFloorPrice = async () => {
     const contract = loaded_data.LINKS[i].split('/')[4];
     const id = loaded_data.IDs[i];
     const BuyerData = loaded_data.BuyerData[i];
-    // const rule = loaded_data.RULES[i];
-    // const value = loaded_data.VALUES[i];
-    // const minProfit = loaded_data.MINPROFIT[i];
     for (let x = 0; x < BuyerData.length; x++) {
       const isBought = await IsBought(id, slug);
       if (isBought == false) {
@@ -206,25 +160,22 @@ const compareFloorPrice = async () => {
         const minutes = moment().diff(moment(timestamp, true), 'minutes');
         if (minutes <= 12) {
           if (rule == 'BelowFloor') {
-            const minPrice = ((100 - Number(value)) / 100) * floor_price; // .split("%")[0]
+            const minPrice = ((100 - Number(value)) / 100) * floor_price;
             const netProfit =
               floor_price - (royalty / 100) * floor_price - price;
 
             if (price <= minPrice && netProfit >= minProfit) {
-              // await updateOutcome(id, minPrice);
               await buyNFT({ contract: contract, id: id, price: price });
             }
           } else if (rule == 'AboveFloor') {
             const maxPrice =
-              ((100 - Number(value)) / 100) * floor_price + floor_price; // .split("%")[0]
+              ((100 - Number(value)) / 100) * floor_price + floor_price;
 
             if (price <= maxPrice) {
-              // await updateOutcome(id, maxPrice);
               await buyNFT({ contract: contract, id: id, price: price });
             }
           } else if (rule == 'Fixed') {
             if (price <= Number(value)) {
-              // await updateOutcome(id, Number(value));
               await buyNFT({ contract: contract, id: id, price: price });
             }
           }
@@ -247,10 +198,6 @@ const extractNewListings = (data) => {
       const LINKS = [];
       const RANKS = [];
       const BuyerData = [];
-      // let TRAITS = [];
-      // let RULES = [];
-      // let VALUES = [];
-      // let MINPROFIT = [];
 
       for (let i = 0; i < data.SLUGS.length; i++) {
         const time = Time[i];
@@ -262,10 +209,6 @@ const extractNewListings = (data) => {
           LINKS.push(data.LINKS[i]);
           RANKS.push(data.RANKS[i]);
           BuyerData.push(data.BuyerData[i]);
-          // VALUES.push(data.VALUES[i]);
-          // TRAITS.push(data.TRAITS[i]);
-          // MINPROFIT.push(data.MINPROFIT[i]);
-          // RULES.push(data.RULES[i]);
         }
       }
 
@@ -276,10 +219,6 @@ const extractNewListings = (data) => {
         LINKS: LINKS,
         RANKS: RANKS,
         BuyerData: BuyerData,
-        // VALUES: VALUES,
-        // TRAITS: TRAITS,
-        // MINPROFIT: MINPROFIT,
-        // RULES: RULES,
         SHEET_SLUGS: data.SHEET_SLUGS,
         FLOORPRICES: data.FLOORPRICES,
         COLLECTIONS: data.COLLECTIONS,
@@ -304,10 +243,6 @@ const loadData = () => {
       const LINKS = [];
       const RANKS = [];
       const BuyerData = [];
-      // let TRAITS = [];
-      // let RULES = [];
-      // let VALUES = [];
-      // let MINPROFIT = [];
 
       // GOOGLE SHEET DATA
       const SHEET_SLUGS = [];
@@ -328,10 +263,6 @@ const loadData = () => {
           LINKS.push(row.LINK);
           RANKS.push(row.RANK);
           BuyerData.push(row.BuyerData);
-          // VALUES.push(row.VALUE);
-          // TRAITS.push(row.TRAIT);
-          // MINPROFIT.push(row.MINPROFIT);
-          // RULES.push(row.RULE);
           Time.push(row.DATE);
         }
 
@@ -357,10 +288,6 @@ const loadData = () => {
             LINKS: LINKS,
             RANKS: RANKS,
             BuyerData: BuyerData,
-            // VALUES: VALUES,
-            // TRAITS: TRAITS,
-            // MINPROFIT: MINPROFIT,
-            // RULES: RULES,
             SHEET_SLUGS: SHEET_SLUGS,
             FLOORPRICES: FLOORPRICES,
             COLLECTIONS: COLLECTIONS,
@@ -375,30 +302,30 @@ const loadData = () => {
   });
 };
 
-setInterval(async () => {
-  (async () => {
-    try {
-      await loadData()
-        .then(async (data) => {
-          if (data !== false) {
-            await extractNewListings(data)
-              .then(async () => {
-                await compareFloorPrice();
-              })
-              .catch((e) => {
-                throw e;
-              });
-          }
-        })
-        .catch((e) => {
-          throw e;
-        });
-    } catch (error) {
-      throw error;
-    }
-  })();
-}, 2000); // 2 sec delay
+// setInterval(async () => {
+//   (async () => {
+//     try {
+//       await loadData()
+//         .then(async (data) => {
+//           if (data !== false) {
+//             await extractNewListings(data)
+//               .then(async () => {
+//                 await compareFloorPrice();
+//               })
+//               .catch((e) => {
+//                 throw e;
+//               });
+//           }
+//         })
+//         .catch((e) => {
+//           throw e;
+//         });
+//     } catch (error) {
+//       throw error;
+//     }
+//   })();
+// }, 2000); // 2 sec delay
 
 
 updateProvider();
-setInterval(updateProvider, 60000 * 60 * 2);
+setInterval(updateProvider, 60000 * 60);

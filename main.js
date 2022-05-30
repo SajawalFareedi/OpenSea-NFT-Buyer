@@ -43,12 +43,8 @@ const writeToDatabase = (slug, id, price, link, rank, buyerData, outcome) => {
         LINK: link,
         RANK: rank,
         BuyerData: buyerData,
-        // TRAIT: trait,
-        // RULE: rule,
-        // VALUE: value,
-        // MINPROFIT: minProfit,
         isBought: false,
-        Outcome: outcome,
+        Outcome: Number(outcome.toFixed(2)),
         DATE: new Date(Date.now()).toISOString(),
       };
 
@@ -63,18 +59,7 @@ const writeToDatabase = (slug, id, price, link, rank, buyerData, outcome) => {
   });
 };
 
-// const getMostExpensiveTrait = (matchedTraits) => {
-//   let TraitsToCompare = [];
-//   for (let i = 0; i < matchedTraits.length; i++) {
-//     const trait = matchedTraits[i];
-//     if (trait.rule !== "BelowFloor") {
-//       TraitsToCompare.push(trait);
-//     }
-//   }
-
-// };
-
-const checkIfTraitExists = (Traits) => {
+const checkIfTraitExists = (Traits, __slug) => {
   const matchedTraits = [];
 
   const data = xlsx.readFile(xlsxPath);
@@ -82,38 +67,27 @@ const checkIfTraitExists = (Traits) => {
   for (let x = 0; x < Traits.length; x++) {
     for (let i = 0; i < traitsData.length; i++) {
       const Active = traitsData[i]['Active'];
+      const excelSlug = traitsData[i]['Slug'];
       const trait = traitsData[i]['TRAITSET'];
       const _trait = Traits[x];
       if (Active == 'YES') {
-        if (trait.includes(':') && _trait.includes(':')) {
-          if (_trait.split(':')[0].trim() == trait.split(':')[0].trim()) {
-            if (
-              _trait
-                .split(':')[1]
-                .trim()
-                .split('[')[0]
-                .replace(/ /g, '')
-                .trim() == trait.split(':')[1].trim()
-            ) {
-              matchedTraits.push({
-                trait: trait,
-                rule: traitsData[i]['Rule'],
-                value: Number(traitsData[i]['Value']) * 100,
-                minProfit: traitsData[i]['MinProfit'],
-              });
+        if (excelSlug == __slug) {
+          if (trait.includes(':') && _trait.includes(':')) {
+            const slug = trait.split(':')[0].trim();
+            const _slug = _trait.split(':')[0].trim();
+            if (slug == _slug) {
+              const json_trait = _trait.split(':')[1].trim().split('[')[0].replace(/ /g, '').trim();
+              const excel_trait = trait.split(':')[1].trim();
+              if (json_trait == excel_trait) {
+                matchedTraits.push({
+                  trait: trait,
+                  rule: traitsData[i]['Rule'],
+                  value: Number(traitsData[i]['Value']) * 100,
+                  minProfit: traitsData[i]['MinProfit'],
+                });
+              }
             }
           }
-          // else if (
-          //   _trait.split(":")[1].trim().split("[")[0].replace(/ /g, "").trim()
-          //     .length == 0
-          // ) {
-          //   matchedTraits.push({
-          //     trait: trait,
-          //     rule: traitsData[i]["Rule"],
-          //     value: Number(traitsData[i]["Value"]) * 100,
-          //     minProfit: traitsData[i]["MinProfit"],
-          //   });
-          // }
         }
       }
     }
@@ -135,28 +109,12 @@ const extractTraits = (data, slug, id) => {
   return traits;
 };
 
-const checkIfExistsInJSON = (
-  slug,
-  id,
-  price,
-  link,
-  rank,
-  // rule,
-  // trait,
-  // value,
-  // minProfit
-) => {
-
+const checkIfExistsInJSON = (slug, id, price, link, rank) => {
   return new Promise((resolve, reject) => {
     try {
-      // let start = performance.now();
-
-      // console.log(Traits);
-      // let end = performance.now();
-      // console.log((end - start) / 1000);
       const Traits = extractTraits(asset_data_json, slug, id);
       if (Traits.length > 0) {
-        const matchedTraits = checkIfTraitExists(Traits);
+        const matchedTraits = checkIfTraitExists(Traits, slug);
         if (matchedTraits.length > 0) {
           const SHEET_SLUGS = [];
           const FLOORPRICES = [];
@@ -183,86 +141,35 @@ const checkIfExistsInJSON = (
               const idx = SHEET_SLUGS.indexOf(slug);
               const floor_price = Number(FLOORPRICES[idx]);
 
-
               if (rule == 'BelowFloor') {
                 const minPrice = ((100 - value) / 100) * floor_price;
-                await writeToDatabase(
-                  slug,
-                  id,
-                  price,
-                  link,
-                  rank,
-                  matchedTraits,
-                  minPrice,
-                );
+                if (!isNaN(minPrice)) {
+                  await writeToDatabase(slug, id, price, link, rank, matchedTraits, minPrice);
+                }
                 return resolve(true);
               } else if (rule == 'AboveFloor') {
-                const maxPrice =
-                  ((100 - value) / 100) * floor_price + floor_price;
-                await writeToDatabase(
-                  slug,
-                  id,
-                  price,
-                  link,
-                  rank,
-                  matchedTraits,
-                  maxPrice,
-                );
+                const maxPrice = ((100 - value) / 100) * floor_price + floor_price;
+                if (!isNaN(maxPrice)) {
+                  await writeToDatabase(slug, id, price, link, rank, matchedTraits, maxPrice);
+                }
                 return resolve(true);
               } else if (rule == 'Fixed') {
-                await writeToDatabase(
-                  slug,
-                  id,
-                  price,
-                  link,
-                  rank,
-                  matchedTraits,
-                  value,
-                );
-                return resolve(true);
+                if (!isNaN(value)) {
+                  await writeToDatabase(slug, id, price, link, rank, matchedTraits, value);
+                  return resolve(true);
+                }
               }
             }
           });
-
           return resolve(true);
         }
       }
 
       return resolve(false);
-
-      // if (matchedTraits.length > 1) {
-      //   let { rule, trait, value, minProfit } =
-      //     getMostExpensiveTrait(matchedTraits);
-      //   await writeToDatabase(
-      //     slug,
-      //     id,
-      //     price,
-      //     link,
-      //     rank,
-      //     rule,
-      //     trait,
-      //     value,
-      //     minProfit
-      //   );
-      // } else if (matchedTraits.length == 1) {
-      //   await writeToDatabase(
-      //     slug,
-      //     id,
-      //     price,
-      //     link,
-      //     rank,
-      //     matchedTraits[0].rule,
-      //     matchedTraits[0].trait,
-      //     matchedTraits[0].value,
-      //     matchedTraits[0].minProfit
-      //   );
-      // }
     } catch (e) {
       console.log(e);
     }
-  })
-
-
+  });
 };
 
 // Function for writing to the JSON file
@@ -335,10 +242,6 @@ const checkIfAlreadyExists = (slug, id, price, link, rank) => {
               price,
               link,
               rank,
-              // rule,
-              // trait,
-              // value,
-              // minProfit
             );
             if (exists) {
               appendToJSON(data);
@@ -359,10 +262,6 @@ const checkIfAlreadyExists = (slug, id, price, link, rank) => {
           price,
           link,
           rank,
-          // rule,
-          // trait,
-          // value,
-          // minProfit
         );
         if (exists) {
           writeToJSON([data]);
@@ -381,10 +280,6 @@ const extractNewListings = (data) => {
     try {
       let idx = '';
       let rank = '';
-      // let value = "";
-      // let trait = "";
-      // let rule = "";
-      // let minProfit = "";
 
       const listings = data.data.assetEvents.edges;
 
@@ -403,79 +298,22 @@ const extractNewListings = (data) => {
             const id = listing.assetQuantity.asset.tokenId;
             const link = `https://opensea.io/assets/${listing.assetQuantity.asset.assetContract.address}/${id}`;
 
-            // if (loaded_data.IDs.length > 0) {
-            //   if (
-            //     loaded_data.SLUGS.indexOf(slug) !== -1 &&
-            //     loaded_data.IDs.indexOf(id) !== -1
-            //   ) {
-            //     idx = loaded_data.IDs.indexOf(id);
-            //     rank = loaded_data.RANKS[idx];
-            //     // value = loaded_data.VALUES[idx];
-            //     // trait = loaded_data.TRAITS[idx];
-            //     // rule = loaded_data.RULES[idx];
-            //     // minProfit = loaded_data.MINPROFIT[idx];
-            //     await checkIfAlreadyExists(
-            //       slug,
-            //       id,
-            //       price,
-            //       link,
-            //       rank
-            //       // rule,
-            //       // trait,
-            //       // value,
-            //       // minProfit
-            //     ).catch((e) => {
-            //       throw e;
-            //     });
-            //   } else {
-            //     if (loaded_data.SLUGS_2.indexOf(slug) !== -1) {
-            //       idx = loaded_data.SLUGS_2.indexOf(slug);
-            //       rank = loaded_data.RANKS_2[idx];
-            //       // value = loaded_data.VALUES_2[idx];
-            //       // trait = loaded_data.TRAITS_2[idx];
-            //       // rule = loaded_data.RULES_2[idx];
-            //       // minProfit = loaded_data.MINPROFIT_2[idx];
-            //       await checkIfAlreadyExists(
-            //         slug,
-            //         id,
-            //         price,
-            //         link,
-            //         rank
-            //         // rule,
-            //         // trait,
-            //         // value,
-            //         // minProfit
-            //       ).catch((e) => {
-            //         throw e;
-            //       });
-            //     }
-            //   }
-            // } else {
             if (
               loaded_data.SLUGS.indexOf(slug) !== -1 &&
               loaded_data.IDs.indexOf(id) !== -1
             ) {
               idx = loaded_data.IDs.indexOf(id);
               rank = loaded_data.RANKS[idx];
-              // value = loaded_data.VALUES[idx];
-              // trait = loaded_data.TRAITS[idx];
-              // rule = loaded_data.RULES[idx];
-              // minProfit = loaded_data.MINPROFIT[idx];
               await checkIfAlreadyExists(
                 slug,
                 id,
                 price,
                 link,
                 rank,
-                // rule,
-                // trait,
-                // value,
-                // minProfit
               ).catch((e) => {
                 throw e;
               });
             }
-            // }
           }
         }
       }
@@ -485,117 +323,6 @@ const extractNewListings = (data) => {
     }
   });
 };
-
-// Function for loading the data from the given excel file
-// const loadExcelData = (path) => {
-//   return new Promise((resolve, reject) => {
-//     try {
-//       let excelData = [];
-
-//       let SLUGS = [];
-//       let IDs = [];
-//       let RANKS = [];
-//       // let TRAITS = [];
-//       // let RULES = [];
-//       // let VALUES = [];
-//       // let MINPROFIT = [];
-
-//       let SLUGS_2 = [];
-//       let IDs_2 = [];
-//       let RANKS_2 = [];
-//       // let TRAITS_2 = [];
-//       // let RULES_2 = [];
-//       // let VALUES_2 = [];
-//       // let MINPROFIT_2 = [];
-
-//       let slug_idx = 0;
-//       let id_idx = 0;
-//       let rank_idx = 0;
-//       // let trait_idx = 0;
-//       // let rule_idx = 0;
-//       // let value_idx = 0;
-//       // let minProfit_idx = 0;
-//       let active_idx = 0;
-
-//       const data = xlsx.readFile(path);
-//       const keyField = xlsx.utils.sheet_to_csv(data.Sheets["Main"]);
-//       keyField.split("\n").map((row) => {
-//         excelData.push(row);
-//       });
-
-//       let header = excelData[0].split(",");
-//       for (let i = 0; i < header.length; i++) {
-//         const column = header[i].trim().split('"').join("");
-//         if (column == "SLUG") {
-//           slug_idx = i;
-//         }
-//         if (column == "ID") {
-//           id_idx = i;
-//         }
-//         if (column == "RANK") {
-//           rank_idx = i;
-//         }
-//         // if (column == "TRAIT") {
-//         //   trait_idx = i;
-//         // }
-//         // if (column == "RULE") {
-//         //   rule_idx = i;
-//         // }
-//         // if (column == "VALUE") {
-//         //   value_idx = i;
-//         // }
-//         // if (column == "MINPROFIT") {
-//         //   minProfit_idx = i;
-//         // }
-//         if (column == "ACTIVE") {
-//           active_idx = i;
-//         }
-//       }
-
-//       for (let n = 1; n < excelData.length - 1; n++) {
-//         const row = excelData[n].split(",");
-//         let active = row[active_idx];
-//         if (active.trim() == "YES") {
-//           if (row[id_idx].trim() == "ALL") {
-//             SLUGS_2.push(row[slug_idx].trim());
-//             IDs_2.push(row[id_idx].trim());
-//             RANKS_2.push(row[rank_idx].trim());
-//             // VALUES_2.push(row[value_idx].trim());
-//             // TRAITS_2.push(row[trait_idx].trim());
-//             // MINPROFIT_2.push(row[minProfit_idx].trim());
-//             // RULES_2.push(row[rule_idx].trim());
-//           } else {
-//             SLUGS.push(row[slug_idx].trim());
-//             IDs.push(row[id_idx].trim());
-//             RANKS.push(row[rank_idx].trim());
-//             // VALUES.push(row[value_idx].trim());
-//             // TRAITS.push(row[trait_idx].trim());
-//             // MINPROFIT.push(row[minProfit_idx].trim());
-//             // RULES.push(row[rule_idx].trim());
-//           }
-//         }
-//       }
-//       return resolve({
-//         SLUGS: SLUGS,
-//         IDs: IDs,
-//         RANKS: RANKS,
-//         // VALUES: VALUES,
-//         // TRAITS: TRAITS,
-//         // MINPROFIT: MINPROFIT,
-//         // RULES: RULES,
-//         SLUGS_2: SLUGS_2,
-//         IDs_2: IDs_2,
-//         RANKS_2: RANKS_2,
-//         // VALUES_2: VALUES_2,
-//         // TRAITS_2: TRAITS_2,
-//         // MINPROFIT_2: MINPROFIT_2,
-//         // RULES_2: RULES_2,
-//       });
-//     } catch (e) {
-//       return reject(e);
-//     }
-//   });
-// };
 
 const loadAllJSONFiles = () => {
   return new Promise((resolve, reject) => {
@@ -652,11 +379,6 @@ const generateUrl = () => {
   return new Promise((resolve, reject) => {
     try {
       let slugs = [];
-      // let slugs =
-      //   loaded_data.SLUGS_2.length > 0
-      //     ? [...loaded_data.SLUGS, ...loaded_data.SLUGS_2]
-      //     : [loaded_data.SLUGS];
-      // slugs = removeDuplicates(slugs);
       for (let x = 0; x < asset_data_json.length; x++) {
         const item = asset_data_json[x];
         slugs.push(item.slug);
@@ -690,16 +412,6 @@ const generateUrl = () => {
 
 const CrawlOpenSeaListings = async () => {
   try {
-    // Checking if the url and XLSX file path are provided or not and throwing error if not provided
-    // if (typeof process.argv[2] !== "undefined") {
-    //   xlsxPath = process.argv[2].split("--file=")[1];
-    // } else {
-    //   console.error(
-    //     '\nError: Please provide the Path to XLSX file.\nHere is an example for running this bot:\n\tnode main.js --file="C:/path/to/excel/file"'
-    //   );
-    //   process.exit(0);
-    // }
-
     // Launch the browser and create a new page for working
     console.log('Launching the browser...');
 
@@ -791,10 +503,6 @@ const CrawlOpenSeaListings = async () => {
       'Configuration completed, navigating to the given OpenSea url...',
     );
 
-    // Load the excel file and start the process
-    // await loadExcelData(xlsxPath)
-    // .then(async (data) => {
-    // loaded_data = data;
     await loadAllJSONFiles();
     loaded_data = await extractJSONData();
     await generateUrl().catch((e) => {
@@ -803,10 +511,6 @@ const CrawlOpenSeaListings = async () => {
     console.log(url);
     await page.goto(url, { timeout: 0, referer: 'https://opensea.io/' });
     console.log('Website opened, checking for new listings...\n');
-    // })
-    // .catch((e) => {
-    //   throw e;
-    // });
   } catch (error) {
     console.log(error);
   }

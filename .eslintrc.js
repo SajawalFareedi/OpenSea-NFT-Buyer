@@ -17,5 +17,6 @@ module.exports = {
     'new-cap': 0,
     'indent': 0,
     'object-curly-spacing': 0,
+    'require-jsdoc': 0,
   },
 };
